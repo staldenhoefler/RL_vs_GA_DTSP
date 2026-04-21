@@ -21,15 +21,29 @@ def extract_node_features(simulator):
     """
     Returns [n, num_features] matrix of node properties:
     - x, y coords
-    - service time
     - visited flag
+    - current travel time from current node
     """
     inst = simulator.inst
     n = inst.coords.shape[0]
     
     features = np.zeros((n, 4), dtype=np.float32)
     features[:, 0:2] = inst.coords
-    features[:, 2] = inst.service_times
-    features[:, 3] = simulator.visited.astype(np.float32)
+    features[:, 2] = simulator.visited.astype(np.float32)
+    
+    b = simulator._time_bin(simulator.time)
+    features[:, 3] = inst.travel_tensor[b, simulator.current, :]
     
     return features
+
+def extract_edge_features(simulator):
+    """
+    Returns [n, n] matrix of pairwise edge properties:
+    - travel times between all nodes i and j
+    """
+    b = simulator._time_bin(simulator.time)
+
+    # Extracts the complete n x n travel time matrix for time bin 'b'
+    edge_matrix = simulator.inst.travel_tensor[b, :, :]
+
+    return edge_matrix

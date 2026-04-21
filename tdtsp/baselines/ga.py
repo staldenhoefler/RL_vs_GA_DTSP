@@ -61,6 +61,14 @@ class GeneticAlgorithm:
             if costs[min_idx] < best_cost:
                 best_cost = costs[min_idx]
                 best_tour = population[min_idx]
+                full_current_tour = [depot] + best_tour + [depot]
+                print(f"[GA] New cost minima achieved: {best_cost:.2f} | Tour list: {full_current_tour}")
+                if use_wandb:
+                    import wandb
+                    wandb.log({
+                        "new_minima/cost": best_cost,
+                        "new_minima/tour_list": str(full_current_tour)
+                    }, commit=False)
                 
             if use_wandb:
                 import wandb
@@ -98,6 +106,14 @@ class GeneticAlgorithm:
         if costs[min_idx] < best_cost:
             best_cost = costs[min_idx]
             best_tour = population[min_idx]
+            full_current_tour = [depot] + best_tour + [depot]
+            print(f"[GA] Final evaluation new cost minima achieved: {best_cost:.2f} | Tour list: {full_current_tour}")
+            if use_wandb:
+                import wandb
+                wandb.log({
+                    "new_minima/cost": best_cost,
+                    "new_minima/tour_list": str(full_current_tour)
+                }, commit=False)
 
         full_best_tour = [depot] + best_tour + [depot]
         return full_best_tour, best_cost

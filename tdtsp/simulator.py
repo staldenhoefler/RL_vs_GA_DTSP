@@ -4,7 +4,6 @@ import numpy as np
 @dataclass
 class TDTSPInstance:
     coords: np.ndarray          # [n, 2]
-    service_times: np.ndarray   # [n]
     travel_tensor: np.ndarray   # [T, n, n]
     time_horizon: float
     dt: float
@@ -37,32 +36,28 @@ class TDTSPSimulator:
     def step(self, j):
         if self.visited[j] and j != self.inst.depot:
             return self.observe(), 0.0, self.done, {"error": "Already visited"}
-            
+
         tt = self.travel_time(self.current, j, self.time)
-        service_time = self.inst.service_times[j]
-        
-        # Step cost is incremental route duration
-        step_cost = tt + service_time
-        
+
+        step_cost = tt
         self.time += step_cost
         self.cost += step_cost
         self.current = j
-        self.visited[j] = True
         self.tour.append(j)
 
-        if self.visited.all() and self.current != self.inst.depot:
-            # Need to return to depot
-            tt_return = self.travel_time(self.current, self.inst.depot, self.time)
-            self.time += tt_return
-            self.cost += tt_return
-            step_cost += tt_return
-            self.current = self.inst.depot
-            self.tour.append(self.inst.depot)
+        if j == self.inst.depot and self.visited.all():
+            # Episode terminates only when agent explicitly returns to depot
             self.done = True
-        elif self.visited.all() and self.current == self.inst.depot:
-            self.done = True
+        else:
+            self.visited[j] = True
 
         reward = -step_cost
+
+        if self.done:
+            # Bonus for completing the tour
+            B = 2000.0
+            reward = B - self.cost
+
         return self.observe(), reward, self.done, {}
 
     def observe(self):
@@ -74,11 +69,12 @@ class TDTSPSimulator:
         }
 
     def get_action_mask(self):
-        # 1 if action is valid, 0 otherwise
         mask = (~self.visited).astype(np.int8)
-        if self.visited.all() and self.current != self.inst.depot:
-            # Allow step back to depot, though `step` handles it automatically too.
-            mask[self.inst.depot] = 1 
+        # Unmask the depot only if all other nodes are visited
+        if self.visited.sum() == self.n:
+            mask[self.inst.depot] = 1
+        else:
+            mask[self.inst.depot] = 0
         return mask
 
     def evaluate_tour(self, perm):

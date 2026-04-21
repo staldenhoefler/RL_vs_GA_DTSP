@@ -5,19 +5,17 @@ def make_coords(n, seed=None):
     rng = np.random.default_rng(seed)
     return rng.uniform(0, 100, size=(n, 2))
 
-def make_static_instance(n=20, depot=0, speed=10.0, seed=42):
+def make_static_instance(n_nodes=20, depot=0, speed=10.0, seed=42):
     """Static TSP baseline: Euclidean distance / speed."""
-    coords = make_coords(n, seed)
-    service_times = np.zeros(n)
+    coords = make_coords(n_nodes, seed)
     
     dist = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
-    travel_time = dist / speed
+    travel_time = dist
     
     travel_tensor = np.expand_dims(travel_time, axis=0) # [1, n, n]
     
     return TDTSPInstance(
         coords=coords,
-        service_times=service_times,
         travel_tensor=travel_tensor,
         time_horizon=24.0,
         dt=24.0,
@@ -28,9 +26,6 @@ def make_piecewise_instance(n=20, t_bins=4, time_horizon=24.0, depot=0, seed=42)
     """Piecewise-constant TD edges."""
     rng = np.random.default_rng(seed)
     coords = make_coords(n, seed)
-    
-    service_times = rng.uniform(0.5, 1.5, size=(n,))
-    service_times[depot] = 0.0
     
     dist = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
     
@@ -46,7 +41,6 @@ def make_piecewise_instance(n=20, t_bins=4, time_horizon=24.0, depot=0, seed=42)
         
     return TDTSPInstance(
         coords=coords,
-        service_times=service_times,
         travel_tensor=travel_tensor,
         time_horizon=time_horizon,
         dt=dt,
@@ -57,9 +51,6 @@ def make_periodic_instance(n=20, t_bins=24, time_horizon=24.0, depot=0, num_peak
     """Smooth periodic edges (sinusoidal rush hour profile)."""
     rng = np.random.default_rng(seed)
     coords = make_coords(n, seed)
-    
-    service_times = rng.uniform(0.5, 1.5, size=(n,))
-    service_times[depot] = 0.0
     
     dist = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
     
@@ -80,7 +71,6 @@ def make_periodic_instance(n=20, t_bins=24, time_horizon=24.0, depot=0, num_peak
         
     return TDTSPInstance(
         coords=coords,
-        service_times=service_times,
         travel_tensor=travel_tensor,
         time_horizon=time_horizon,
         dt=dt,
@@ -107,9 +97,6 @@ def make_city_instance(n_nodes=20, t_bins=24, time_horizon=24.0, depot=0, center
     # Fix depot directly to the epicenter 
     coords[depot] = [center[0], center[1]]
     
-    service_times = rng.uniform(0.5, 1.5, size=(n,))
-    service_times[depot] = 0.0
-    
     dist = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
     
     # Calculate radial distances to measure inward/outward movement
@@ -132,12 +119,7 @@ def make_city_instance(n_nodes=20, t_bins=24, time_horizon=24.0, depot=0, center
     travel_tensor = np.zeros((actual_bins, n, n))
     
     times = np.linspace(0, time_horizon, actual_bins, endpoint=False)
-    
-    # Baseline peaks around 8:00 AM and 5:00 PM (17:00)
-    morning_peak = 8.0
-    evening_peak = 17.0
-    peak_width = 2.5 
-    
+
     for b in range(actual_bins):
         t = times[b]
         
@@ -175,7 +157,6 @@ def make_city_instance(n_nodes=20, t_bins=24, time_horizon=24.0, depot=0, center
         
     return TDTSPInstance(
         coords=coords,
-        service_times=service_times,
         travel_tensor=travel_tensor,
         time_horizon=time_horizon,
         dt=dt,

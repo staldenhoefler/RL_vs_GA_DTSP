@@ -2,7 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from .simulator import TDTSPSimulator
-from .features import extract_global_features, extract_node_features
+from .features import extract_global_features, extract_node_features, extract_edge_features
 
 class TDTSPGymEnv(gym.Env):
     def __init__(self, simulator: TDTSPSimulator):
@@ -16,6 +16,7 @@ class TDTSPGymEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "node_features": spaces.Box(low=-np.inf, high=np.inf, shape=(n, 4), dtype=np.float32),
             "global_features": spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32),
+            "edge_features": spaces.Box(low=0, high=np.inf, shape=(n, n), dtype=np.float32),
             "action_mask": spaces.Box(low=0, high=1, shape=(n,), dtype=np.int8)
         })
 
@@ -38,6 +39,7 @@ class TDTSPGymEnv(gym.Env):
         return {
             "node_features": extract_node_features(self.sim),
             "global_features": extract_global_features(self.sim),
+            "edge_features": extract_edge_features(self.sim),
             "action_mask": self.sim.get_action_mask()
         }
 

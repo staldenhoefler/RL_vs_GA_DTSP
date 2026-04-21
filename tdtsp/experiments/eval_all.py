@@ -59,14 +59,16 @@ def run_evaluation():
         print(f"Loaded trained RL policy from {model_path}")
     else:
         print(f"WARNING: {model_path} not found! Evaluating an untrained random baseline policy.")
-    
+
     t0 = time.time()
     obs, _ = env.reset()
     done = False
-    
+
     while not done:
         action, _ = policy.get_action(obs, deterministic=True)
-        obs, reward, done, _, info = env.step(action)
+        # Properly unpack and evaluate both terminated and truncated signals
+        obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
     t_rl = time.time() - t0
     
     cost_rl = info['cost']
