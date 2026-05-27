@@ -51,13 +51,14 @@ def run_rl_experiment():
     instances = []
     
     for i in range(num_instances):
-        ## inst = make_city_instance(**e_cfg, seed=seed + i)
-        inst = make_static_instance(n_nodes=env_cfg['n_nodes'], seed=seed + i)
+        inst = make_city_instance(**e_cfg, seed=seed + i)
+        ##inst = make_static_instance(n_nodes=env_cfg['n_nodes'], seed=seed + i)
         sim = TDTSPSimulator(inst)
         instances.append(inst)
         envs.append(TDTSPGymEnv(sim))
 
-    val_inst = make_static_instance(n_nodes=env_cfg['n_nodes'], seed=test_seed)
+    ## val_inst = make_static_instance(n_nodes=env_cfg['n_nodes'], seed=test_seed)
+    val_inst = make_city_instance(**e_cfg, seed=seed + i)
     val_simulator = TDTSPSimulator(val_inst)
     val_env = TDTSPGymEnv(val_simulator)
 
@@ -184,15 +185,65 @@ def run_rl_experiment():
     model_path = os.path.join(os.path.dirname(__file__), '../../rl_policy.pth')
     torch.save(policy.state_dict(), model_path)
 
-    last_tour = val_info['tour'] if 'val_info' in locals() and 'tour' in val_info else None
-    last_cost = val_info['cost'] if 'val_info' in locals() and 'cost' in val_info else 0.0
+    # === RL to GA Hybridization Phase ===
+    print("\n[Hybrid RL-GA] Generating initial population using the trained RL policy...")
+    from tdtsp.baselines.ga import GeneticAlgorithm
+    from tdtsp.ga_eval import evaluate_population
+    
+    rl_population = []
+    ga_cfg = config.get('ga', {})
+    pop_size = ga_cfg.get('pop_size', 100)
+    
+    # Generate tours using stochastic stochastic action sampling (non-deterministic)
+    for _ in range(pop_size):
+        val_obs, _ = val_env.reset()
+        val_obs = normalize_observation(val_obs)
+        val_done = False
+        val_info = {}
+        
+        with torch.no_grad():
+            while not val_done:
+                # IMPORTANT: We sample actions to generate diverse solutions!
+                val_action, _ = policy.get_action(val_obs, deterministic=False)
+                val_obs, _, val_term, val_trunc, val_info = val_env.step(val_action)
+                val_obs = normalize_observation(val_obs)
+                val_done = val_term or val_trunc
+
+        tour = val_info['tour']
+        if hasattr(tour, 'tolist'):
+            tour = tour.tolist()
+            
+        # Format the GA internal list (strip depot instances)
+        depot_val = val_inst.depot
+        ga_tour = [node for node in tour if node != depot_val]
+        rl_population.append(ga_tour)
+        
+    print(f"[Hybrid RL-GA] Passing {len(rl_population)} RL-generated diverse tours to Genetic Algorithm.")
+
+    ga = GeneticAlgorithm(
+        pop_size=pop_size,
+        elite_size=ga_cfg.get('elite_size', 10),
+        mutation_rate=ga_cfg.get('mutation_rate', 0.1),
+        max_generations=ga_cfg.get('max_generations', 200)
+    )
+    
+    # Execute the GA with the RL-seeded population
+    best_tour_hybrid, best_cost_hybrid = ga.solve(
+        simulator=val_simulator, 
+        evaluator_fn=evaluate_population, 
+        use_wandb=True,
+        initial_population=rl_population
+    )
+
+    print(f"\n=== Hybrid Phase Complete ===")
+    print(f"Hybrid Final Cost: {best_cost_hybrid:.2f}")
 
     # For visualizations, use the fixed validation instance
     instance = val_inst
 
     fig_dyn = plot_instance_dynamics(instance)
-    fig_tour = plot_tour(instance, last_tour, title=f"RL Final Val Tour (Cost: {last_cost:.2f})")
-    gif_path = create_edge_weight_gif(instance, "rl_val_network_dynamics.gif")
+    fig_tour = plot_tour(instance, best_tour_hybrid, title=f"Hybrid RL-GA Final Tour (Cost: {best_cost_hybrid:.2f})")
+    gif_path = create_edge_weight_gif(instance, "hybrid_val_network_dynamics.gif")
 
     wandb.log({
         "environment/dynamics": wandb.Image(get_figure_image(fig_dyn)),
@@ -201,7 +252,6 @@ def run_rl_experiment():
     })
 
     wandb.finish()
-
 
 if __name__ == "__main__":
     run_rl_experiment()

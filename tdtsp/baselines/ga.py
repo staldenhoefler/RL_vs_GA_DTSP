@@ -45,10 +45,22 @@ class GeneticAlgorithm:
             perm[idx1], perm[idx2] = perm[idx2], perm[idx1]
         return perm
 
-    def solve(self, simulator, evaluator_fn, use_wandb=False):
+    def solve(self, simulator, evaluator_fn, use_wandb=False, initial_population=None):
         n = simulator.inst.coords.shape[0]
         depot = simulator.inst.depot
-        population = self._create_initial_population(n, depot)
+        
+        if initial_population is not None:
+            population = [list(p) for p in initial_population]
+            # Fill remaining spots with random if given population is too small
+            if len(population) < self.pop_size:
+                needed = self.pop_size - len(population)
+                filler = self._create_initial_population(n, depot)
+                population.extend(filler[:needed])
+            # Truncate if too large
+            elif len(population) > self.pop_size:
+                population = population[:self.pop_size]
+        else:
+            population = self._create_initial_population(n, depot)
         
         best_cost = float('inf')
         best_tour = None

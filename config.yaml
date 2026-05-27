@@ -16,11 +16,11 @@ env:
   congestion_factor: 1.0
 
 ga:
-  pop_size: 400
-  elite_size: 20
-  max_generations: 1000
-  eval_max_generations: 1000
-  mutation_rate: 0.2
+  pop_size: 500
+  elite_size: 50
+  max_generations: 500
+  eval_max_generations: 500
+  mutation_rate: 0.1
 
 rl:
   num_instances: 100
@@ -28,8 +28,8 @@ rl:
   num_layers: 4
   lr: 0.01
   weight_decay: 0.000001
-  num_episodes: 20000
-  batch_size: 16
+  num_episodes: 10000
+  batch_size: 32
   entropy_coef: 0.1
   entropy_decay: 0.99
   temperature: 3
